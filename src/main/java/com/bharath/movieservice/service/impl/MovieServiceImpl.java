@@ -1,4 +1,136 @@
 package com.bharath.movieservice.service.impl;
 
-public class MovieServiceImpl {
+import com.bharath.movieservice.dto.MovieRequest;
+import com.bharath.movieservice.dto.MovieResponse;
+import com.bharath.movieservice.entity.Movie;
+import com.bharath.movieservice.exception.IllegalArgumentException;
+import com.bharath.movieservice.exception.InvalidBookingException;
+import com.bharath.movieservice.exception.ResourceNotFoundException;
+import com.bharath.movieservice.repository.MovieRepository;
+import com.bharath.movieservice.service.CloudinaryService;
+import com.bharath.movieservice.service.MovieService;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class MovieServiceImpl implements MovieService {
+
+    private final MovieRepository movieRepository;
+    private final CloudinaryService cloudinaryService;
+//    private final ShowRepository showRepository;
+
+    @Override
+    @Transactional
+    public MovieResponse addMovie(MovieRequest request, MultipartFile poster) throws IOException {
+        if(movieRepository.existsByTitle(request.getTitle()))
+            throw new InvalidBookingException("Movie already exists!");
+
+        if(poster ==  null || poster.isEmpty())
+            throw new IllegalArgumentException("Poster URL is empty!");
+
+        String posterUrl = cloudinaryService.uploadImage(poster);
+
+        if(posterUrl == null || posterUrl.isBlank())
+            throw new IllegalArgumentException("Poster URL is empty!");
+
+        Movie savedMovie = Movie.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .duration(request.getDuration())
+                .language(request.getLanguage())
+                .genre(request.getGenre())
+                .releaseDate(request.getReleaseDate())
+                .rating(request.getRating())
+                .status(request.getStatus())
+                .posterUrl(posterUrl)
+                .build();
+        movieRepository.save(savedMovie);
+        return mapToMovieResponse(savedMovie);
+    }
+
+    @Override
+    @Transactional
+    public MovieResponse updateMovie(MovieRequest request, Long id, MultipartFile poster) throws IOException {
+        Movie movie = movieRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Movie Not Found!"));
+
+        if (movieRepository.existsByTitleAndIdNot(request.getTitle(), id)) {
+            throw new InvalidBookingException("Movie already exists!");
+        }
+
+        movie.setTitle(request.getTitle());
+        movie.setDescription(request.getDescription());
+        movie.setDuration(request.getDuration());
+        movie.setLanguage(request.getLanguage());
+        movie.setGenre(request.getGenre());
+        movie.setReleaseDate(request.getReleaseDate());
+        movie.setRating(request.getRating());
+        movie.setStatus(request.getStatus());
+
+        if(poster != null && !poster.isEmpty()) {
+            String posterUrl = cloudinaryService.uploadImage(poster);
+            movie.setPosterUrl(posterUrl);
+        }
+
+        Movie updatedMovie = movieRepository.save(movie);
+        return mapToMovieResponse(updatedMovie);
+    }
+
+    @Override
+    public MovieResponse getMovieById(Long id) {
+        Movie movie = movieRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Movie Not Found!"));
+        return mapToMovieResponse(movie);
+    }
+
+    @Override
+    public List<MovieResponse> getAllMovies() {
+        return movieRepository.findAll().stream().map(this::mapToMovieResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public String deleteMovie(Long id) {
+        Movie movie = movieRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Movie Not Found!"));
+
+//      if(showRepository.existsByMovie_Id(id)) {
+//            throw new InvalidBookingException("Cannot delete movie shows are associated with it" + movie.getTitle());
+//      }
+
+        movieRepository.deleteById(id);
+        return "Movie has been deleted";
+    }
+
+    @Override
+    public Page<MovieResponse> searchMovie(String title, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("title").ascending());
+        Page<Movie> movies = movieRepository.findByTitleContainingIgnoreCase(title, pageable);
+        return movies.map(this::mapToMovieResponse);
+    }
+
+    private MovieResponse mapToMovieResponse(Movie movie) {
+        return MovieResponse.builder()
+                .id(movie.getId())
+                .title(movie.getTitle())
+                .description(movie.getDescription())
+                .duration(movie.getDuration())
+                .language(movie.getLanguage())
+                .genre(movie.getGenre())
+                .releaseDate(movie.getReleaseDate())
+                .rating(movie.getRating())
+                .status(movie.getStatus())
+                .posterUrl(movie.getPosterUrl())
+                .build();
+    }
 }
