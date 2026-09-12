@@ -22,8 +22,9 @@ public class MovieController {
 
     private final MovieService movieService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<MovieResponse> addMovie(@RequestPart("movie") @Valid MovieRequest request, @RequestPart("poster") MultipartFile poster) throws IOException{
+    @PostMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE}, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<MovieResponse> addMovie(@RequestPart(value = "movie", required = false) @Valid MovieRequest requestPart, @RequestBody(required = false) @Valid MovieRequest requestBody, @RequestPart(value = "poster", required = false) MultipartFile poster) throws IOException {
+        MovieRequest request = requestPart != null ? requestPart : requestBody;
         MovieResponse response = movieService.addMovie(request, poster);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

@@ -3,7 +3,6 @@ package com.bharath.movieservice.service.impl;
 import com.bharath.movieservice.dto.MovieRequest;
 import com.bharath.movieservice.dto.MovieResponse;
 import com.bharath.movieservice.entity.Movie;
-import com.bharath.movieservice.exception.IllegalArgumentException;
 import com.bharath.movieservice.exception.InvalidBookingException;
 import com.bharath.movieservice.exception.ResourceNotFoundException;
 import com.bharath.movieservice.repository.MovieRepository;
@@ -35,13 +34,13 @@ public class MovieServiceImpl implements MovieService {
         if(movieRepository.existsByTitle(request.getTitle()))
             throw new InvalidBookingException("Movie already exists!");
 
-        if(poster ==  null || poster.isEmpty())
-            throw new IllegalArgumentException("Poster URL is empty!");
-
-        String posterUrl = cloudinaryService.uploadImage(poster);
-
-        if(posterUrl == null || posterUrl.isBlank())
-            throw new IllegalArgumentException("Poster URL is empty!");
+        String posterUrl = "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba";
+        if (poster != null && !poster.isEmpty()) {
+            String uploaded = cloudinaryService.uploadImage(poster);
+            if (uploaded != null && !uploaded.isBlank()) {
+                posterUrl = uploaded;
+            }
+        }
 
         Movie savedMovie = Movie.builder()
                 .title(request.getTitle())
